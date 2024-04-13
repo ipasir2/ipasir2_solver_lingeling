@@ -64,7 +64,7 @@ add_compile_options(
 # Their names on disk match `liblgl.*` corresponding to the original build script, which
 # produces a static library `liblgl.a`.
 # TODO: deal with ELF pessimization: https://maskray.me/blog/2021-05-16-elf-interposition-and-bsymbolic
-set(LGL_LIB_SOURCES lglbnr.c lgldimacs.c lglib.c lglopts.c)
+set(LGL_LIB_SOURCES lglbnr.c lgldimacs.c lglib.c lglopts.c ipasir2.c)
 add_library(lingeling-shared SHARED ${LGL_LIB_SOURCES})
 add_library(lingeling-static STATIC ${LGL_LIB_SOURCES})
 

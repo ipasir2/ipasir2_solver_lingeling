@@ -1,14 +1,9 @@
-# Imported from https://github.com/fkutzner/lingeling-cmake, commit 5c10eaf9
+# Imported from https://github.com/fkutzner/lingeling-cmake, commit afb0f5
 
 cmake_minimum_required(VERSION 3.19)
 project(lingeling)
 
 option(LGL_BUILD_TOOLS "Build the Lingeling executables in addition to the library" ON)
-option(LGL_BUILD_FAKE_POSIX "Experimental: don't assume a POSIX environment, but provide enough functions to compile the lingeling library. Disables LGL_BUILD_TOOLS." OFF)
-
-if (LGL_BUILD_FAKE_POSIX)
-  set(LGL_BUILD_TOOLS OFF)
-endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/target)
@@ -72,17 +67,11 @@ foreach (target IN ITEMS lingeling-shared lingeling-static)
   target_link_libraries(${target} PUBLIC -lm)
   target_include_directories(${target} PRIVATE "${LGL_GENERATED_SRC_DIR}")
   target_include_directories(${target} INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include>)
-  set_target_properties(${target} PROPERTIES OUTPUT_NAME "lgl" PREFIX "lib")
+  set_target_properties(${target} PROPERTIES OUTPUT_NAME "lgl")
 endforeach()
 
 install(FILES "${PROJECT_SOURCE_DIR}/lglib.h" DESTINATION include)
 install(TARGETS lingeling-shared lingeling-static EXPORT Lingeling LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
-
-if (WIN32)
-  # lglib.h does not have symbol visibility information, so export all symbols:
-  set_target_properties(lingeling-shared PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
-endif()
-
 
 
 if (LGL_BUILD_TOOLS)
@@ -102,62 +91,4 @@ if (LGL_BUILD_TOOLS)
 
   # blimc requires AIGER, so it is excludede for now:
   # add_tool(blimc blimc.c)
-endif()
-
-
-
-if (LGL_BUILD_FAKE_POSIX)
-  # This code is currently included here to keep the repo's overall
-  # diff to the original as small as possible.
-
-  write_file("${LGL_GENERATED_SRC_DIR}/sys/resource.h" [=[
-    // This header fakes POSIX functions used by lingeling, see CMakeLists.txt
-
-    #include <time.h>
-
-    struct lgl_timeval {
-      time_t tv_sec;
-      long int tv_usec;
-    };
-
-    struct lgl_rusage {
-      struct lgl_timeval ru_utime;
-      struct lgl_timeval ru_stime;
-    };
-
-    #define RUSAGE_SELF 0
-
-    #define rusage lgl_rusage
-
-    // Exporting all symbols, so don't clobber getrusage:
-    #define getrusage lgl_getrusage
-
-    int lgl_getrusage(int who, struct lgl_rusage *r_usage);
-  ]=])
-
-  write_file("${LGL_GENERATED_SRC_DIR}/sys/resource.c" [=[
-    #include <sys/resource.h>
-    #include <stdint.h>
-
-    int lgl_getrusage(int who, struct lgl_rusage *r_usage) {
-      clock_t cpu_time = clock();
-      if (cpu_time < 0) {
-        return -1;
-      }
-
-      int64_t cpu_usecs = cpu_time * 1000000 / CLOCKS_PER_SEC;
-      r_usage->ru_utime.tv_sec = cpu_usecs / 1000000;
-      r_usage->ru_utime.tv_usec = cpu_usecs % 1000000;
-      r_usage->ru_stime.tv_sec = 0;
-      r_usage->ru_stime.tv_usec = 0;
-      return 0;
-    }
-  ]=])
-
-  write_file("${LGL_GENERATED_SRC_DIR}/sys/time.h" [=[
-    // Stub
-  ]=])
-
-  target_sources(lingeling-shared PRIVATE "${LGL_GENERATED_SRC_DIR}/sys/resource.c")
-  target_sources(lingeling-static PRIVATE "${LGL_GENERATED_SRC_DIR}/sys/resource.c")
 endif()
